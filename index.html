@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calorie Calculator</title>
+</head>
+<body>
+  <h1>Calorie Calculator</h1>
+  
+  <form id="calorieForm">
+    <label for="searchFood">Search Food Item:</label>
+    <input type="text" id="searchFood" placeholder="Type to search..." oninput="filterFoodItems()">
+    
+    <label for="foodItem">Select Food Item:</label>
+    <select id="foodItem" onchange="updateUnit()">
+      <!-- Options populated by JavaScript -->
+    </select>
+    
+    <label for="quantity">Enter Quantity (<span id="unitLabel"></span>):</label>
+    <input type="number" id="quantity" required>
+    
+    <button type="button" onclick="calculateCalories()">Calculate</button>
+  </form>
+  
+  <h2 id="result">Total Calories for This Entry: </h2>
+  <h3>Entries Log:</h3>
+  <ul id="calorieLog"></ul>
+  <h2 id="totalCalories">Cumulative Total Calories: 0</h2>
+  
+  <script src="script.js"></script>
+</body>
+</html>
