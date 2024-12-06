@@ -4,30 +4,222 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Calorie Calculator</title>
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Firebase SDK (Modular) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.16.0/firebase-app.js";
+    import { getDatabase, ref, get, set, push, update, remove } from "https://www.gstatic.com/firebasejs/9.16.0/firebase-database.js";
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAC_6SbnJsWITM8qVZkIrtcjSaB_6_gwl8",
+      authDomain: "caloriedata-3cf1b.firebaseapp.com",
+      databaseURL: "https://caloriedata-3cf1b-default-rtdb.firebaseio.com",
+      projectId: "caloriedata-3cf1b",
+      storageBucket: "caloriedata-3cf1b.appspot.com",
+      messagingSenderId: "658188131455",
+      appId: "1:658188131455:web:ca88e065281b97c100734a",
+      measurementId: "G-200GGWWSCH"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    let calorieData = [];
+
+    // Fetch data from Firebase
+    const calorieDataRef = ref(db, 'calorieData');
+    get(calorieDataRef).then((snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        calorieData = Object.entries(data).map(([key, value]) => ({ id: key, ...value }));
+        window.filteredData = calorieData;
+        populateFoodItems();
+      } else {
+        console.log('No data available in Firebase');
+      }
+    }).catch((error) => {
+      console.error('Error fetching data from Firebase:', error);
+    });
+
+    // Filter food items based on search query
+    function filterFoodItems() {
+      const searchQuery = document.getElementById('searchFood').value.toLowerCase();
+      window.filteredData = calorieData.filter(item => item.item.toLowerCase().includes(searchQuery));
+      populateFoodItems();
+    }
+
+    // Populate the food items dropdown
+    function populateFoodItems() {
+      const foodSelect = document.getElementById('foodItem');
+      foodSelect.innerHTML = '';
+      const dataToDisplay = window.filteredData.length ? window.filteredData : calorieData;
+
+      dataToDisplay.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.text = item.item;
+        option.dataset.caloriesPerUnit = item.caloriesPerUnit;
+        option.dataset.unit = item.unit;
+        foodSelect.add(option);
+      });
+
+      updateUnit();
+    }
+
+    // Update the selected unit label
+    function updateUnit() {
+      const selectedFood = document.getElementById('foodItem').selectedOptions[0];
+      if (selectedFood) {
+        document.getElementById('unitLabel').innerText = selectedFood.dataset.unit;
+        document.getElementById('foodName').value = selectedFood.text;
+        document.getElementById('caloriesPerUnit').value = selectedFood.dataset.caloriesPerUnit;
+        document.getElementById('unitDropdown').value = selectedFood.dataset.unit;
+      }
+    }
+
+    let cumulativeTotalCalories = 0;
+
+    // Calculate the total calories based on the quantity
+    function calculateCalories() {
+      const quantity = document.getElementById('quantity').value;
+      const selectedFood = document.getElementById('foodItem').selectedOptions[0];
+      const totalCalories = quantity * selectedFood.dataset.caloriesPerUnit;
+
+      document.getElementById('result').innerText = `Total Calories for This Entry: ${totalCalories}`;
+      cumulativeTotalCalories += totalCalories;
+      document.getElementById('totalCalories').innerText = `Cumulative Total Calories: ${cumulativeTotalCalories}`;
+
+      logCalorieEntry(selectedFood.text, quantity, selectedFood.dataset.unit, totalCalories);
+    }
+
+    // Log the calorie entry
+    function logCalorieEntry(foodItem, quantity, unit, calories) {
+      const calorieLog = document.getElementById('calorieLog');
+      const logEntry = document.createElement('li');
+      logEntry.innerText = `${foodItem} - Quantity: ${quantity} ${unit}, Calories: ${calories}`;
+      calorieLog.appendChild(logEntry);
+    }
+
+    // Add new food item to Firebase
+    function addFood() {
+      const foodName = document.getElementById('foodName').value;
+      const caloriesPerUnit = parseFloat(document.getElementById('caloriesPerUnit').value);
+      const unit = document.getElementById('unitDropdown').value;
+
+      const newFoodRef = push(calorieDataRef);
+      set(newFoodRef, {
+        item: foodName,
+        caloriesPerUnit: caloriesPerUnit,
+        unit: unit
+      }).then(() => {
+        alert("Food item added successfully!");
+        window.location.reload();
+      }).catch((error) => {
+        console.error("Error adding food:", error);
+      });
+    }
+
+    // Update food item in Firebase
+    function updateFood() {
+      const foodNameToUpdate = document.getElementById('foodName').value;
+
+      const itemToUpdate = calorieData.find(item => item.item.toLowerCase() === foodNameToUpdate.toLowerCase());
+
+      if (itemToUpdate) {
+        const foodName = document.getElementById('foodName').value;
+        const caloriesPerUnit = parseFloat(document.getElementById('caloriesPerUnit').value);
+        const unit = document.getElementById('unitDropdown').value;
+
+        const foodRef = ref(db, `calorieData/${itemToUpdate.id}`);
+        update(foodRef, {
+          item: foodName,
+          caloriesPerUnit: caloriesPerUnit,
+          unit: unit
+        }).then(() => {
+          alert("Food item updated successfully!");
+          window.location.reload();
+        }).catch((error) => {
+          console.error("Error updating food:", error);
+        });
+      } else {
+        alert("Food item not found!");
+      }
+    }
+
+    // Delete food item from Firebase
+    function deleteFood() {
+      const foodNameToDelete = document.getElementById('foodName').value;
+
+      const itemToDelete = calorieData.find(item => item.item.toLowerCase() === foodNameToDelete.toLowerCase());
+
+      if (itemToDelete) {
+        const foodRef = ref(db, `calorieData/${itemToDelete.id}`);
+        remove(foodRef).then(() => {
+          alert("Food item deleted successfully!");
+          window.location.reload();
+        }).catch((error) => {
+          console.error("Error deleting food:", error);
+        });
+      } else {
+        alert("Food item not found!");
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('searchFood').addEventListener('input', filterFoodItems);
+      document.querySelector("button[type='button']").addEventListener("click", calculateCalories);
+      document.getElementById('foodItem').addEventListener("change", updateUnit);
+      document.getElementById('addFoodButton').addEventListener('click', addFood);
+      document.getElementById('updateFoodButton').addEventListener('click', updateFood);
+      document.getElementById('deleteFoodButton').addEventListener('click', deleteFood);
+    });
+  </script>
 </head>
 <body>
   <h1>Calorie Calculator</h1>
-  
-  <form id="calorieForm">
-    <label for="searchFood">Search Food Item:</label>
-    <input type="text" id="searchFood" placeholder="Type to search..." oninput="filterFoodItems()">
-    
-    <label for="foodItem">Select Food Item:</label>
-    <select id="foodItem" onchange="updateUnit()">
-      <!-- Options populated by JavaScript -->
-    </select>
-    
-    <label for="quantity">Enter Quantity (<span id="unitLabel"></span>):</label>
-    <input type="number" id="quantity" required>
-    
-    <button type="button" onclick="calculateCalories()">Calculate</button>
-  </form>
-  
-  <h2 id="result">Total Calories for This Entry: </h2>
-  <h3>Entries Log:</h3>
+
+  <div>
+    <label for="searchFood">Search for Food:</label>
+    <input type="text" id="searchFood" placeholder="Search food items">
+  </div>
+
+  <div>
+    <label for="foodItem">Select Food:</label>
+    <select id="foodItem"></select>
+  </div>
+
+  <div>
+    <label for="quantity">Quantity:</label>
+    <input type="number" id="quantity" value="1" step="any">
+    <span id="unitLabel">grams</span>
+  </div>
+
+  <button type="button">Calculate Calories</button>
+
+  <div id="result"></div>
+  <div id="totalCalories"></div>
+
+  <h2>Calorie Log</h2>
   <ul id="calorieLog"></ul>
-  <h2 id="totalCalories">Cumulative Total Calories: 0</h2>
-  
-  <script src="script.js"></script>
+
+  <h2>Manage Food Items</h2>
+  <input type="text" id="foodName" placeholder="Food Name">
+  <input type="number" id="caloriesPerUnit" placeholder="Calories Per Unit" step="any">
+
+  <label for="unitDropdown">Unit:</label>
+  <select id="unitDropdown">
+    <option value="grams">grams</option>
+    <option value="pieces">pieces</option>
+    <option value="cups">cups</option>
+    <option value="oz">oz</option>
+    <option value="ml">ml</option>
+    <option value="tbsp">tbsp</option>
+  </select>
+
+  <button id="addFoodButton">Add Food</button>
+  <button id="updateFoodButton">Update Food</button>
+  <button id="deleteFoodButton">Delete Food</button>
 </body>
 </html>
